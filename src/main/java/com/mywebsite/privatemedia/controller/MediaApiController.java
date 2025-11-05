@@ -173,7 +173,6 @@ public class MediaApiController {
    */
   @DeleteMapping("/media/{id}")
   public ResponseEntity<Void> deleteMedia(@PathVariable Long id, HttpSession session) {
-    // --- ADMIN-ONLY SECURITY CHECK ---
     if (!"ADMIN".equals(getSessionRole(session))) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN).build(); // 403 Forbidden
     }
@@ -184,13 +183,19 @@ public class MediaApiController {
     }
 
     Post post = postOptional.get();
-
-    // 1. Delete from S3
     storageService.delete(post.getMediaKey());
-
-    // 2. Delete from Database
     postRepository.delete(post);
 
+    return ResponseEntity.ok().build();
+  }
+
+  /**
+   * --- NEW ENDPOINT 5: LOGOUT ---
+   * Destroys the server session.
+   */
+  @PostMapping("/logout")
+  public ResponseEntity<Void> logout(HttpSession session) {
+    session.invalidate(); // Destroys the session
     return ResponseEntity.ok().build();
   }
 }
