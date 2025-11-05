@@ -12,15 +12,22 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
 public class MediaApiController {
 
-  @Value("${MY_SITE_PASSWORD}")
-  private String sitePassword;
+  // --- Injected Passwords (from application.properties) ---
+  @Value("${ADMIN_PASSWORD}")
+  private String adminPassword;
 
+  @Value("${USER_PASSWORD}")
+  private String userPassword;
+
+  // --- Injected Services ---
   private final PostRepository postRepository;
   private final StorageService storageService;
 
@@ -29,70 +36,104 @@ public class MediaApiController {
     this.storageService = storageService;
   }
 
-  // This class is used to receive the password
+  // --- Helper DTO Classes (inner classes) ---
+
+  // Receives password from frontend
   public static class PasswordRequest {
     public String password;
   }
 
-  // --- NEW DTO CLASS ---
-  // This is a new "Data Transfer Object" we will send to the frontend.
-  // It contains the presigned URL, not the private key.
+  // Holds post data to send to frontend
   public static class PostResponse {
-    private String mediaUrl; // This will hold the PRESIGNED URL
+    private Long id;
+    private String mediaUrl;
     private String mediaType;
     private LocalDateTime timestamp;
 
-    // Constructor
-    public PostResponse(String mediaUrl, String mediaType, LocalDateTime timestamp) {
+    public PostResponse(Long id, String mediaUrl, String mediaType, LocalDateTime timestamp) {
+      this.id = id;
       this.mediaUrl = mediaUrl;
       this.mediaType = mediaType;
       this.timestamp = timestamp;
     }
 
-    // Getters
+    // Getters are needed for JSON serialization
+    public Long getId() { return id; }
     public String getMediaUrl() { return mediaUrl; }
     public String getMediaType() { return mediaType; }
     public LocalDateTime getTimestamp() { return timestamp; }
   }
 
+  // Holds the complete page data (posts + role)
+  public static class MediaPageResponse {
+    private List<PostResponse> posts;
+    private String userRole;
 
+    public MediaPageResponse(List<PostResponse> posts, String userRole) {
+      this.posts = posts;
+      this.userRole = userRole;
+    }
+
+    // Getters
+    public List<PostResponse> getPosts() { return posts; }
+    public String getUserRole() { return userRole; }
+  }
+
+  // --- Security Helper Method ---
+
+  /**
+   * Helper method to get the role from the session.
+   * Returns "ADMIN", "USER", or null.
+   */
+  private String getSessionRole(HttpSession session) {
+    Object role = session.getAttribute("role");
+    if (role == null) {
+      return null;
+    }
+    return (String) role;
+  }
+
+  // --- API ENDPOINTS ---
+
+  /**
+   * Endpoint 1: Authenticate
+   * Checks password and returns the user's role.
+   */
   @PostMapping("/authenticate")
-  public ResponseEntity<Void> authenticate(@RequestBody PasswordRequest request, HttpSession session) {
-    // (This method is unchanged)
-    if (sitePassword.equals(request.password)) {
-      session.setAttribute("authenticated", true);
-      return ResponseEntity.ok().build();
+  public ResponseEntity<Map<String, String>> authenticate(@RequestBody PasswordRequest request, HttpSession session) {
+    String sessionRole = null;
+
+    if (adminPassword.equals(request.password)) {
+      sessionRole = "ADMIN";
+    } else if (userPassword.equals(request.password)) {
+      sessionRole = "USER";
+    }
+
+    if (sessionRole != null) {
+      session.setAttribute("role", sessionRole);
+      return ResponseEntity.ok(Map.of("role", sessionRole));
     } else {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
   }
 
-  private boolean isAuthenticated(HttpSession session) {
-    // (This method is unchanged)
-    Object authFlag = session.getAttribute("authenticated");
-    return authFlag != null && (Boolean) authFlag;
-  }
-
   /**
-   * Endpoint 2: Get Media (HEAVILY MODIFIED)
+   * Endpoint 2: Get Media
+   * Returns all media AND the user's role. (Used for auto-login)
    */
   @GetMapping("/media")
-  public ResponseEntity<List<PostResponse>> getMedia(HttpSession session) {
-    if (!isAuthenticated(session)) {
+  public ResponseEntity<MediaPageResponse> getMedia(HttpSession session) {
+    String role = getSessionRole(session);
+    if (role == null) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
 
-    // 1. Get all Post entities (which contain the private mediaKey)
     List<Post> posts = postRepository.findAllByOrderByTimestampDesc();
-
-    // 2. Convert each Post into a PostResponse DTO
     List<PostResponse> responseList = posts.stream()
         .map(post -> {
-          // 3. Generate a presigned URL for each post's media key
           String presignedUrl = storageService.generatePresignedUrl(post.getMediaKey());
-
-          // 4. Create the new response object
           return new PostResponse(
+              post.getId(),
               presignedUrl,
               post.getMediaType(),
               post.getTimestamp()
@@ -100,29 +141,55 @@ public class MediaApiController {
         })
         .collect(Collectors.toList());
 
-    // 5. Return the list of DTOs
-    return ResponseEntity.ok(responseList);
+    MediaPageResponse pageResponse = new MediaPageResponse(responseList, role);
+    return ResponseEntity.ok(pageResponse);
   }
 
   /**
-   * Endpoint 3: Upload Media (MODIFIED)
+   * Endpoint 3: Upload Media
+   * Both ADMIN and USER can upload.
    */
   @PostMapping("/upload")
   public ResponseEntity<Void> uploadMedia(@RequestParam("file") MultipartFile file, HttpSession session) {
-    if (!isAuthenticated(session) || file.isEmpty()) {
+    if (getSessionRole(session) == null || file.isEmpty()) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
 
-    // 1. Store the file. This now returns the private key (filename).
     String mediaKey = storageService.store(file);
 
-    // 2. Save the key (not a URL) to the database
     Post post = new Post();
-    post.setMediaKey(mediaKey); // <-- Use the updated setter
+    post.setMediaKey(mediaKey);
     post.setMediaType(file.getContentType());
     post.setTimestamp(LocalDateTime.now());
 
     postRepository.save(post);
+
+    return ResponseEntity.ok().build();
+  }
+
+  /**
+   * Endpoint 4: Delete Media
+   * ONLY ADMIN can delete.
+   */
+  @DeleteMapping("/media/{id}")
+  public ResponseEntity<Void> deleteMedia(@PathVariable Long id, HttpSession session) {
+    // --- ADMIN-ONLY SECURITY CHECK ---
+    if (!"ADMIN".equals(getSessionRole(session))) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).build(); // 403 Forbidden
+    }
+
+    Optional<Post> postOptional = postRepository.findById(id);
+    if (postOptional.isEmpty()) {
+      return ResponseEntity.notFound().build();
+    }
+
+    Post post = postOptional.get();
+
+    // 1. Delete from S3
+    storageService.delete(post.getMediaKey());
+
+    // 2. Delete from Database
+    postRepository.delete(post);
 
     return ResponseEntity.ok().build();
   }

@@ -17,7 +17,7 @@
       width: 100%;
       padding: 10px;
       margin-bottom: 15px;
-      box-sizing: border-box; /* Important! */
+      box-sizing: border-box;
     }
     #upload-container button {
       width: 100%;
@@ -27,12 +27,20 @@
       color: white;
       font-size: 16px;
       cursor: pointer;
+      border-radius: 4px;
+    }
+    #upload-container a {
+      color: #00aaff;
+      text-decoration: none;
     }
   </style>
 </head>
 <body>
 
 <div id="upload-container">
+
+  <a href="/">&larr; Back to Feed</a>
+
   <h2 style="margin-top: 30px;">Upload New Media</h2>
 
   <form id="upload-form">
@@ -40,13 +48,12 @@
     <button type="submit">Upload</button>
   </form>
 
-  <p id="upload-status" style="margin-top: 20px;"></p>
+  <p id="upload-status" style="margin-top: 20px; text-align: center;"></p>
 </div>
 
 <script>
-  // Handle the upload form
   document.getElementById('upload-form').addEventListener('submit', async (e) => {
-    e.preventDefault(); // Stop default form submission
+    e.preventDefault();
 
     const fileInput = document.getElementById('file-input');
     const status = document.getElementById('upload-status');
@@ -60,15 +67,18 @@
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData
-        // No password needed here, the session is used
+        // No password needed here, the session cookie is sent automatically
       });
 
       if (response.ok) {
         status.textContent = 'Upload successful!';
         status.style.color = 'green';
         fileInput.value = ''; // Clear the file input
+      } else if (response.status === 401 || response.status === 403) {
+        status.textContent = 'Upload failed. You must log in on the main page first.';
+        status.style.color = 'red';
       } else {
-        status.textContent = 'Upload failed. You may need to log in again on the main page.';
+        status.textContent = 'Upload failed. The file might be too large.';
         status.style.color = 'red';
       }
     } catch (err) {

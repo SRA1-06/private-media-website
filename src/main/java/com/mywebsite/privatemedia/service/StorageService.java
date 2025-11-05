@@ -26,30 +26,29 @@ public class StorageService {
   private String bucketName;
 
   /**
-   * Stores the file in S3 and returns the private key (filename).
+   * Stores the file in S3 (privately) and returns the key.
    */
   public String store(MultipartFile file) {
     String filename = UUID.randomUUID() + "-" + file.getOriginalFilename();
 
     try {
+      // Create metadata to fix the content-length warning
       ObjectMetadata metadata = new ObjectMetadata();
       metadata.setContentLength(file.getSize());
       metadata.setContentType(file.getContentType());
+
       PutObjectRequest putObjectRequest = new PutObjectRequest(
           bucketName,
           filename,
           file.getInputStream(),
-          metadata
+          metadata // Pass the metadata
       );
 
-      // --- CHANGE 1: REMOVE PUBLIC ACL ---
-      // DO NOT add .withCannedAcl(CannedAccessControlList.PublicRead)
-      // The file will be private by default.
-
+      // Upload (file is private by default)
       s3Client.putObject(putObjectRequest);
 
-      // --- CHANGE 2: RETURN THE KEY, NOT A URL ---
-      return filename; // e.g., "a1b2c3d4-my-video.mp4"
+      // Return the private key
+      return filename;
 
     } catch (IOException e) {
       throw new RuntimeException("Failed to store file in S3.", e);
@@ -57,7 +56,6 @@ public class StorageService {
   }
 
   /**
-   * --- NEW METHOD ---
    * Generates a temporary, 15-minute presigned URL for a private S3 object.
    */
   public String generatePresignedUrl(String mediaKey) {
@@ -65,13 +63,11 @@ public class StorageService {
       return null;
     }
 
-    // Set the expiration time (e.g., 15 minutes from now)
     Date expiration = new Date();
     long expTimeMillis = Instant.now().toEpochMilli();
     expTimeMillis += 1000 * 60 * 15; // 15 minutes
     expiration.setTime(expTimeMillis);
 
-    // Generate the presigned URL
     GeneratePresignedUrlRequest generatePresignedUrlRequest =
         new GeneratePresignedUrlRequest(bucketName, mediaKey)
             .withMethod(HttpMethod.GET)
@@ -79,5 +75,19 @@ public class StorageService {
 
     URL url = s3Client.generatePresignedUrl(generatePresignedUrlRequest);
     return url.toString();
+  }
+
+  /**
+   * Deletes a file from the S3 bucket.
+   */
+  public void delete(String mediaKey) {
+    if (mediaKey == null || mediaKey.isEmpty()) {
+      return;
+    }
+    try {
+      s3Client.deleteObject(bucketName, mediaKey);
+    } catch (Exception e) {
+      System.err.println("Error deleting file from S3: " + e.getMessage());
+    }
   }
 }
