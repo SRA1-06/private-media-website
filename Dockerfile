@@ -8,10 +8,13 @@ WORKDIR /app
 COPY .mvn/ .mvn
 COPY mvnw pom.xml ./
 
+# --- THIS IS THE FIX ---
+# Copy all your source code so Maven can build it
+COPY src ./src
+
 # Build the app
-# Using 'clean package' will compile, test, and package your app
 RUN ./mvnw clean package -DskipTests
 
-# Your 'Start Command' from before
-# Make sure this jar name matches your pom.xml artifactId
+# Your 'Start Command'
+# Using the project name 'private-media' from your error log
 CMD ["java", "-jar", "target/private-media-0.0.1-SNAPSHOT.jar"]
