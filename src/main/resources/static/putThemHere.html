@@ -50,6 +50,18 @@
 </head>
 <body>
 
+<script>
+  const userRole = sessionStorage.getItem("userRole");
+
+  // If the user's role is not ADMIN (could be USER or null/logged out)
+  // immediately redirect them to the home page.
+  if (userRole !== "ADMIN") {
+    // Use replace() so the user can't click "Back" to this page
+    window.location.replace('/');
+  }
+</script>
+
+
 <div id="upload-container">
 
   <a href="/">&larr; Back to Feed</a>
@@ -87,6 +99,7 @@
         status.style.color = 'green';
         fileInput.value = ''; // Clear the file input
       } else if (response.status === 401 || response.status === 403) {
+        // This is a safety fallback, but the page guard should prevent this
         status.textContent = 'Upload failed. You must be an ADMIN to upload.';
         status.style.color = 'red';
       } else {
