@@ -7,10 +7,23 @@
   <style>
     body { margin: 0; font-family: sans-serif; background-color: #111; color: #fff; }
 
-    #password-gate {
+    /* --- NEW LOADER ---
+       This is shown first to prevent the "flash" */
+    #loader {
       position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
       background-color: #000; display: flex; justify-content: center;
+      align-items: center; z-index: 101; font-size: 18px;
+    }
+
+    #password-gate {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+      background-color: #000;
+      display: none; /* Hidden by default */
+      justify-content: center;
       align-items: center; flex-direction: column; z-index: 100;
+
+      /* --- TRANSITION FOR SLIDE-UP --- */
+      transition: transform 0.6s ease-in-out;
     }
 
     #password-gate button {
@@ -29,7 +42,9 @@
       filter: grayscale(0%);
     }
 
-    #content-feed { display: none; }
+    #content-feed {
+      display: none; /* Hidden by default */
+    }
     #media-container { max-width: 800px; margin: 0 auto; padding-top: 30px; }
 
     .media-item {
@@ -52,16 +67,14 @@
 
     .media-item video { max-height: 80vh; }
 
-    /* --- HEADER BAR --- */
     #main-header {
-      display: flex;
-      justify-content: center; /* Centered the content */
+      display: none; /* Hidden by default, shown for ADMIN */
+      justify-content: center;
       align-items: center;
       padding: 15px 25px;
       background-color: #222;
       box-sizing: border-box;
       width: 100%;
-      /* This ensures the bar has height even when empty */
       min-height: 60.5px;
     }
 
@@ -99,6 +112,10 @@
 </head>
 <body>
 
+<div id="loader">
+  <p>Loading...</p>
+</div>
+
 <div id="password-gate">
   <h2>Enter Password</h2>
   <input type="password" id="password-input" />
@@ -107,16 +124,16 @@
 </div>
 
 <div id="content-feed">
-
   <div id="main-header">
     <div id="upload-link-container"></div>
   </div>
-
   <div id="media-container">
   </div>
 </div>
 
 <script>
+  // Get all elements
+  const loader = document.getElementById('loader');
   const gate = document.getElementById('password-gate');
   const feed = document.getElementById('content-feed');
   const loginButton = document.getElementById('login-button');
@@ -124,9 +141,11 @@
   const errorMessage = document.getElementById('error-message');
   const mediaContainer = document.getElementById('media-container');
   const uploadLinkContainer = document.getElementById('upload-link-container');
+  const mainHeader = document.getElementById('main-header');
 
   /**
-   * Checks password against the API, saves role to session storage
+   * --- UPDATED checkPassword FUNCTION ---
+   * Now triggers the "scroll up" transition
    */
   async function checkPassword() {
     const password = passwordInput.value;
@@ -137,9 +156,20 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: password })
       });
+
       if (response.ok) {
         const data = await response.json();
         sessionStorage.setItem("userRole", data.role);
+
+        // --- TRIGGER THE TRANSITION ---
+        gate.style.transform = 'translateY(-100%)'; // Slide up
+
+        // Hide the gate from the DOM *after* it slides off-screen
+        gate.addEventListener('transitionend', () => {
+          gate.style.display = 'none';
+        }, { once: true }); // 'once: true' removes the listener after it runs
+
+        // Load the media content
         loadMedia();
       } else {
         errorMessage.textContent = 'Incorrect Password';
@@ -149,44 +179,49 @@
     }
   }
 
-  /**
-   * Helper function to format ISO date string to DD-MM-YYYY
-   */
+  // (formatDate function is unchanged)
   function formatDate(isoString) {
-    if (!isoString) {
-      return '';
-    }
+    if (!isoString) return '';
     const date = new Date(isoString);
     const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
   }
 
   /**
-   * Loads all media from the API.
+   * --- UPDATED loadMedia FUNCTION ---
+   * Now controls the loader, gate, and feed visibility
    */
   async function loadMedia() {
     try {
       const response = await fetch('/api/media');
-      if (!response.ok) {
-        gate.style.display = 'flex';
-        feed.style.display = 'none';
+
+      if (!response.ok) { // Not logged in
+        loader.style.display = 'none'; // Hide loader
+        feed.style.display = 'none';   // Hide feed
+        gate.style.transform = 'translateY(0)'; // Reset gate position
+        gate.style.display = 'flex';   // Show gate
         sessionStorage.removeItem("userRole");
         return;
       }
-      gate.style.display = 'none';
-      feed.style.display = 'block';
+
+      // Logged in!
+      loader.style.display = 'none'; // Hide loader
+      gate.style.display = 'none';   // Hide gate
+      feed.style.display = 'block';  // Show feed
+
       const data = await response.json();
       const mediaItems = data.posts;
       const userRole = data.userRole;
       sessionStorage.setItem("userRole", userRole);
 
-      // --- ADMIN-ONLY UPLOAD LINK ---
       if (userRole === "ADMIN") {
         uploadLinkContainer.innerHTML = '<a href="/putThemHere.html">Upload New Media &rarr;</a>';
+        mainHeader.style.display = 'flex'; // Show header for Admin
       } else {
-        uploadLinkContainer.innerHTML = ''; // Empty for normal users
+        uploadLinkContainer.innerHTML = '';
+        mainHeader.style.display = 'none'; // Hide header for User
       }
 
       mediaContainer.innerHTML = '';
@@ -205,10 +240,8 @@
           }
         }
 
-        // Add timestamp
         htmlContent += `<p class="timestamp">${formattedDate}</p>`;
 
-        // --- ADMIN-ONLY DELETE BUTTON ---
         if (userRole === "ADMIN") {
           htmlContent += `
                             <button onclick="deleteMedia(${item.id})" class="delete-btn">
@@ -221,14 +254,13 @@
       }
     } catch (err) {
       console.error('Failed to load media:', err);
-      gate.style.display = 'flex';
-      feed.style.display = 'none';
+      loader.style.display = 'none'; // Hide loader
+      gate.style.display = 'flex';   // Show gate on error
+      feed.style.display = 'none';   // Hide feed
     }
   }
 
-  /**
-   * Asks for confirmation and calls the DELETE API
-   */
+  // (deleteMedia function is unchanged)
   async function deleteMedia(id) {
     if (!confirm('Are you sure you want to delete this media?')) {
       return;
@@ -247,22 +279,24 @@
     }
   }
 
-  // --- NO LOGOUT FUNCTION ---
-
-  // --- Event Listeners ---
+  // (Event listeners are unchanged)
   loginButton.addEventListener('click', checkPassword);
   passwordInput.addEventListener('keyup', (event) => {
     if (event.key === 'Enter') checkPassword();
   });
 
-  // --- AUTO-LOGIN LOGIC ---
-  // Checks session storage *before* calling API to prevent console errors
+  /**
+   * --- UPDATED AUTO-LOGIN LOGIC ---
+   * Now decides whether to show loader (for auto-login) or gate
+   */
   const storedRole = sessionStorage.getItem("userRole");
   if (storedRole === "ADMIN" || storedRole === "USER") {
+    // Loader is visible by default, try to auto-login
     loadMedia();
   } else {
+    // Not logged in. Hide loader, show gate.
+    loader.style.display = 'none';
     gate.style.display = 'flex';
-    feed.style.display = 'none';
   }
 </script>
 </body>
