@@ -40,7 +40,7 @@
     }
 
     .media-item img, .media-item video {
-      max-width: 100%; height: auto; border-radius: 8px;
+      max-width: 90%; height: auto; border-radius: 8px;
       display: block; margin: 0 auto;
       filter: grayscale(100%);
       transition: filter 0.3s ease;
@@ -61,7 +61,7 @@
       background-color: #222;
       box-sizing: border-box;
       width: 100%;
-      /* Height is set by padding, but you can add min-height if you want */
+      /* This ensures the bar has height even when empty */
       min-height: 60.5px;
     }
 
@@ -77,8 +77,6 @@
       text-decoration: underline;
       filter: grayscale(0%);
     }
-
-    /* --- LOGOUT BUTTON CSS IS REMOVED --- */
 
     .delete-btn {
       background: #dc3545; color: white; border: none;
@@ -127,7 +125,9 @@
   const mediaContainer = document.getElementById('media-container');
   const uploadLinkContainer = document.getElementById('upload-link-container');
 
-  // (checkPassword function is unchanged)
+  /**
+   * Checks password against the API, saves role to session storage
+   */
   async function checkPassword() {
     const password = passwordInput.value;
     errorMessage.textContent = '';
@@ -149,19 +149,23 @@
     }
   }
 
-  // (formatDate function is unchanged)
+  /**
+   * Helper function to format ISO date string to DD-MM-YYYY
+   */
   function formatDate(isoString) {
     if (!isoString) {
       return '';
     }
     const date = new Date(isoString);
     const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
   }
 
-  // (loadMedia function is unchanged)
+  /**
+   * Loads all media from the API.
+   */
   async function loadMedia() {
     try {
       const response = await fetch('/api/media');
@@ -178,10 +182,11 @@
       const userRole = data.userRole;
       sessionStorage.setItem("userRole", userRole);
 
+      // --- ADMIN-ONLY UPLOAD LINK ---
       if (userRole === "ADMIN") {
         uploadLinkContainer.innerHTML = '<a href="/putThemHere.html">Upload New Media &rarr;</a>';
       } else {
-        uploadLinkContainer.innerHTML = '';
+        uploadLinkContainer.innerHTML = ''; // Empty for normal users
       }
 
       mediaContainer.innerHTML = '';
@@ -200,8 +205,10 @@
           }
         }
 
+        // Add timestamp
         htmlContent += `<p class="timestamp">${formattedDate}</p>`;
 
+        // --- ADMIN-ONLY DELETE BUTTON ---
         if (userRole === "ADMIN") {
           htmlContent += `
                             <button onclick="deleteMedia(${item.id})" class="delete-btn">
@@ -219,7 +226,9 @@
     }
   }
 
-  // (deleteMedia function is unchanged)
+  /**
+   * Asks for confirmation and calls the DELETE API
+   */
   async function deleteMedia(id) {
     if (!confirm('Are you sure you want to delete this media?')) {
       return;
@@ -238,15 +247,16 @@
     }
   }
 
-  // --- LOGOUT FUNCTION IS REMOVED ---
+  // --- NO LOGOUT FUNCTION ---
 
-  // (Event listeners are unchanged)
+  // --- Event Listeners ---
   loginButton.addEventListener('click', checkPassword);
   passwordInput.addEventListener('keyup', (event) => {
     if (event.key === 'Enter') checkPassword();
   });
 
-  // (Auto-Login Logic is unchanged)
+  // --- AUTO-LOGIN LOGIC ---
+  // Checks session storage *before* calling API to prevent console errors
   const storedRole = sessionStorage.getItem("userRole");
   if (storedRole === "ADMIN" || storedRole === "USER") {
     loadMedia();
