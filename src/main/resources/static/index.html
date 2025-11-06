@@ -13,7 +13,24 @@
       align-items: center; flex-direction: column; z-index: 100;
     }
 
-    #content-feed { display: none; } /* Removed padding-top, header will have padding */
+    #password-gate button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 10px;
+
+      filter: grayscale(100%);
+      transition: filter 0.3s ease;
+    }
+    #password-gate button:hover, #password-gate button:active {
+      filter: grayscale(0%);
+    }
+
+    #content-feed { display: none; }
     #media-container { max-width: 800px; margin: 0 auto; padding-top: 30px; }
 
     .media-item {
@@ -26,15 +43,23 @@
     .media-item img, .media-item video {
       max-width: 100%; height: auto; border-radius: 8px;
       display: block; margin: 0 auto;
+
+      filter: grayscale(100%);
+      transition: filter 0.3s ease;
     }
+
+    .media-item:hover img, .media-item:hover video {
+      filter: grayscale(0%);
+    }
+
     .media-item video { max-height: 80vh; }
 
     /* --- NEW HEADER BAR --- */
     #main-header {
       display: flex;
-      justify-content: space-between; /* Pushes items to opposite ends */
+      justify-content: space-between;
       align-items: center;
-      padding: 15px 25px; /* Added more side padding */
+      padding: 15px 25px;
       background-color: #222;
       box-sizing: border-box;
       width: 100%;
@@ -45,14 +70,17 @@
       font-size: 18px;
       text-decoration: none;
       font-weight: bold;
+
+      filter: grayscale(100%);
+      transition: filter 0.3s ease;
     }
     #main-header #upload-link-container a:hover {
       text-decoration: underline;
+      filter: grayscale(0%);
     }
 
-    /* --- NEW LOGOUT BUTTON STYLE --- */
     #logout-button {
-      color: #ccc; /* Subtler color */
+      color: #ccc;
       font-size: 14px;
       text-decoration: none;
       font-weight: normal;
@@ -61,17 +89,23 @@
       padding: 8px 12px;
       border-radius: 4px;
       border: none;
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
-    #logout-button:hover {
-      background-color: #dc3545; /* Red on hover */
+    #logout-button:hover, #logout-button:active {
+      background-color: #dc3545;
       color: white;
     }
-
 
     .delete-btn {
       background: #dc3545; color: white; border: none;
       padding: 5px 10px; cursor: pointer; margin-top: 10px;
       border-radius: 4px;
+
+      filter: grayscale(100%);
+      transition: filter 0.3s ease;
+    }
+    .delete-btn:hover, .delete-btn:active {
+      filter: grayscale(0%);
     }
   </style>
 </head>
@@ -88,7 +122,6 @@
 
   <div id="main-header">
     <div id="upload-link-container"></div>
-
     <button onclick="logout()" id="logout-button">Logout</button>
   </div>
 
@@ -97,18 +130,14 @@
 </div>
 
 <script>
-  // Get all elements
   const gate = document.getElementById('password-gate');
   const feed = document.getElementById('content-feed');
   const loginButton = document.getElementById('login-button');
   const passwordInput = document.getElementById('password-input');
   const errorMessage = document.getElementById('error-message');
   const mediaContainer = document.getElementById('media-container');
-
-  // --- NEW: Get the upload link container ---
   const uploadLinkContainer = document.getElementById('upload-link-container');
 
-  // (checkPassword function is unchanged)
   async function checkPassword() {
     const password = passwordInput.value;
     errorMessage.textContent = '';
@@ -130,10 +159,6 @@
     }
   }
 
-  /**
-   * --- UPDATED loadMedia FUNCTION ---
-   * Now dynamically adds the "Upload" link for Admins
-   */
   async function loadMedia() {
     try {
       const response = await fetch('/api/media');
@@ -150,7 +175,6 @@
       const userRole = data.userRole;
       sessionStorage.setItem("userRole", userRole);
 
-      // --- NEW LOGIC FOR ADMIN UPLOAD LINK ---
       if (userRole === "ADMIN") {
         uploadLinkContainer.innerHTML = '<a href="/putThemHere.html">Upload New Media &rarr;</a>';
       } else {
@@ -186,10 +210,9 @@
     }
   }
 
-  // (deleteMedia function is unchanged)
   async function deleteMedia(id) {
     if (!confirm('Are you sure you want to delete this media?')) {
-      return; Full
+      return;
     }
     try {
       const response = await fetch('/api/media/' + id, {
@@ -205,7 +228,6 @@
     }
   }
 
-  // (logout function is unchanged)
   async function logout() {
     try {
       await fetch('/api/logout', { method: 'POST' });
@@ -216,13 +238,12 @@
     location.reload();
   }
 
-  // --- Event Listeners (unchanged) ---
   loginButton.addEventListener('click', checkPassword);
   passwordInput.addEventListener('keyup', (event) => {
     if (event.key === 'Enter') checkPassword();
   });
 
-  // --- Auto-Login Logic (unchanged) ---
+  // --- Auto-Login Logic ---
   const storedRole = sessionStorage.getItem("userRole");
   if (storedRole === "ADMIN" || storedRole === "USER") {
     loadMedia();
@@ -230,7 +251,6 @@
     gate.style.display = 'flex';
     feed.style.display = 'none';
   }
-
 </script>
 </body>
 </html>

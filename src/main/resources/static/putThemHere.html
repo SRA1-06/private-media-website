@@ -28,10 +28,23 @@
       font-size: 16px;
       cursor: pointer;
       border-radius: 4px;
+
+      filter: grayscale(100%);
+      transition: filter 0.3s ease;
     }
+    #upload-container button:hover, #upload-container button:active {
+      filter: grayscale(0%);
+    }
+
     #upload-container a {
       color: #00aaff;
       text-decoration: none;
+
+      filter: grayscale(100%);
+      transition: filter 0.3s ease;
+    }
+    #upload-container a:hover, #upload-container a:active {
+      filter: grayscale(0%);
     }
   </style>
 </head>
@@ -67,7 +80,6 @@
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData
-        // No password needed here, the session cookie is sent automatically
       });
 
       if (response.ok) {
@@ -75,7 +87,7 @@
         status.style.color = 'green';
         fileInput.value = ''; // Clear the file input
       } else if (response.status === 401 || response.status === 403) {
-        status.textContent = 'Upload failed. You must log in on the main page first.';
+        status.textContent = 'Upload failed. You must be an ADMIN to upload.';
         status.style.color = 'red';
       } else {
         status.textContent = 'Upload failed. The file might be too large.';
