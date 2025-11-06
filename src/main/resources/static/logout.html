@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Logging Out...</title>
+  <style>
+    body {
+      background-color: #111;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+<h2>Logging you out... Please wait.</h2>
+
+<script>
+  /**
+   * This script runs immediately when the page loads.
+   */
+  async function performLogout() {
+    try {
+      // 1. Tell the server to destroy its session
+      await fetch('/api/logout', { method: 'POST' });
+    } catch (err) {
+      // Log error but continue, frontend logout is most important
+      console.error('Logout API call failed:', err);
+    }
+
+    // 2. Clear the browser's role storage
+    sessionStorage.removeItem("userRole");
+
+    // 3. Redirect to the main page (which will now show the password gate)
+    window.location.href = '/';
+  }
+
+  // Run the logout function
+  performLogout();
+</script>
+</body>
+</html>

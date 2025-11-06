@@ -22,7 +22,6 @@
       cursor: pointer;
       font-size: 16px;
       margin-top: 10px;
-
       filter: grayscale(100%);
       transition: filter 0.3s ease;
     }
@@ -41,9 +40,8 @@
     }
 
     .media-item img, .media-item video {
-      max-width: 90%; height: auto; border-radius: 8px;
+      max-width: 100%; height: auto; border-radius: 8px;
       display: block; margin: 0 auto;
-
       filter: grayscale(100%);
       transition: filter 0.3s ease;
     }
@@ -54,15 +52,17 @@
 
     .media-item video { max-height: 80vh; }
 
-    /* --- NEW HEADER BAR --- */
+    /* --- HEADER BAR --- */
     #main-header {
       display: flex;
-      justify-content: space-between;
+      justify-content: center; /* Centered the content */
       align-items: center;
       padding: 15px 25px;
       background-color: #222;
       box-sizing: border-box;
       width: 100%;
+      /* Height is set by padding, but you can add min-height if you want */
+      min-height: 60.5px;
     }
 
     #main-header #upload-link-container a {
@@ -70,7 +70,6 @@
       font-size: 18px;
       text-decoration: none;
       font-weight: bold;
-
       filter: grayscale(100%);
       transition: filter 0.3s ease;
     }
@@ -79,33 +78,24 @@
       filter: grayscale(0%);
     }
 
-    #logout-button {
-      color: #ccc;
-      font-size: 14px;
-      text-decoration: none;
-      font-weight: normal;
-      cursor: pointer;
-      background-color: #333;
-      padding: 8px 12px;
-      border-radius: 4px;
-      border: none;
-      transition: background-color 0.3s ease, color 0.3s ease;
-    }
-    #logout-button:hover, #logout-button:active {
-      background-color: #dc3545;
-      color: white;
-    }
+    /* --- LOGOUT BUTTON CSS IS REMOVED --- */
 
     .delete-btn {
       background: #dc3545; color: white; border: none;
       padding: 5px 10px; cursor: pointer; margin-top: 10px;
       border-radius: 4px;
-
       filter: grayscale(100%);
       transition: filter 0.3s ease;
     }
     .delete-btn:hover, .delete-btn:active {
       filter: grayscale(0%);
+    }
+
+    .timestamp {
+      font-size: 12px;
+      color: #888;
+      margin-top: 10px;
+      margin-bottom: 5px;
     }
   </style>
 </head>
@@ -122,7 +112,6 @@
 
   <div id="main-header">
     <div id="upload-link-container"></div>
-    <button onclick="logout()" id="logout-button">Logout</button>
   </div>
 
   <div id="media-container">
@@ -138,6 +127,7 @@
   const mediaContainer = document.getElementById('media-container');
   const uploadLinkContainer = document.getElementById('upload-link-container');
 
+  // (checkPassword function is unchanged)
   async function checkPassword() {
     const password = passwordInput.value;
     errorMessage.textContent = '';
@@ -159,6 +149,19 @@
     }
   }
 
+  // (formatDate function is unchanged)
+  function formatDate(isoString) {
+    if (!isoString) {
+      return '';
+    }
+    const date = new Date(isoString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  // (loadMedia function is unchanged)
   async function loadMedia() {
     try {
       const response = await fetch('/api/media');
@@ -178,14 +181,17 @@
       if (userRole === "ADMIN") {
         uploadLinkContainer.innerHTML = '<a href="/putThemHere.html">Upload New Media &rarr;</a>';
       } else {
-        uploadLinkContainer.innerHTML = ''; // Empty for normal users
+        uploadLinkContainer.innerHTML = '';
       }
 
       mediaContainer.innerHTML = '';
       for (const item of mediaItems) {
         const div = document.createElement('div');
         div.className = 'media-item';
+
+        const formattedDate = formatDate(item.timestamp);
         let htmlContent = '';
+
         if (item.mediaUrl) {
           if (item.mediaType.startsWith('image')) {
             htmlContent = `<img src="${item.mediaUrl}" alt="Media">`;
@@ -193,6 +199,9 @@
             htmlContent = `<video src="${item.mediaUrl}" controls></video>`;
           }
         }
+
+        htmlContent += `<p class="timestamp">${formattedDate}</p>`;
+
         if (userRole === "ADMIN") {
           htmlContent += `
                             <button onclick="deleteMedia(${item.id})" class="delete-btn">
@@ -210,6 +219,7 @@
     }
   }
 
+  // (deleteMedia function is unchanged)
   async function deleteMedia(id) {
     if (!confirm('Are you sure you want to delete this media?')) {
       return;
@@ -228,22 +238,15 @@
     }
   }
 
-  async function logout() {
-    try {
-      await fetch('/api/logout', { method: 'POST' });
-    } catch (err) {
-      console.error('Logout API call failed:', err);
-    }
-    sessionStorage.removeItem("userRole");
-    location.reload();
-  }
+  // --- LOGOUT FUNCTION IS REMOVED ---
 
+  // (Event listeners are unchanged)
   loginButton.addEventListener('click', checkPassword);
   passwordInput.addEventListener('keyup', (event) => {
     if (event.key === 'Enter') checkPassword();
   });
 
-  // --- Auto-Login Logic ---
+  // (Auto-Login Logic is unchanged)
   const storedRole = sessionStorage.getItem("userRole");
   if (storedRole === "ADMIN" || storedRole === "USER") {
     loadMedia();
